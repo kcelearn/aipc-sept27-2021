@@ -28,3 +28,5 @@ resource docker_container fortune {
         external = var.base_external_port + count.index
     }
 }
+
+# bruce was here
