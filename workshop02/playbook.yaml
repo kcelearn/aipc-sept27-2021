@@ -102,7 +102,7 @@
   # d#G2JCCN35dU
   - name: MySQL initialize output
     debug:
-      msg: "{{ output }}"
+      msg: "{{ output.stderr_lines[-1] }}"
 
   - name: Generate the service file
     template:
