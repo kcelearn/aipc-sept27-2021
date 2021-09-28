@@ -1,0 +1,27 @@
+- name: Connectivity Test
+  hosts: all
+  vars: 
+    a_name: fred
+  tasks:
+  - name: Ping
+    ping: ~
+  - name: show name
+    debug:
+      msg: "hello {{ a_name | default('anon') | upper }}"
+  - name: Install nginx
+    apt:
+      update_cache: yes
+      name: "{{ item }}"
+      state: present
+    loop:
+    - nginx
+    - python3-pip
+    - build-essential 
+    - libssl-dev 
+    - libffi-dev 
+    - python3-dev
+  - name: Enable and start nginx
+    systemd:
+      name: nginx
+      enabled: yes
+      state: started

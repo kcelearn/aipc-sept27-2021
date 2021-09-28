@@ -1,0 +1,11 @@
+all:
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: ../keys/aipc
+    ansible_connection: ssh
+
+  hosts:
+    
+    myserver-0:
+      ansible_host: 209.97.166.218
+    
