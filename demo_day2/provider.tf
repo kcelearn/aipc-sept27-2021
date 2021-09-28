@@ -5,9 +5,15 @@ terraform {
             source = "digitalocean/digitalocean"
             version = "2.12.0"
         }
+        local = {
+            source = "hashicorp/local"
+            version = "2.1.0"
+        }
     }
 }
 
 provider digitalocean {
     token = var.DO_token
 }
+
+provider local { }
