@@ -1,0 +1,119 @@
+- name: Install MySQL
+  hosts: all
+  become: yes #sudo
+  vars:
+    pkgs_to_install: [ 'unzip', 'libaio1', 'libtinfo5 ']
+    download_dir: /usr/local/opt
+    mysql_archive: https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.26-linux-glibc2.12-x86_64.tar.xz
+    mysql_archive_checksum: "md5:100a0e9336ef106a5fe90e6803b57066"
+    mysql_dir: mysql-8.0.26-linux-glibc2.12-x86_64
+    mysql_base_dir: /usr/local/opt/mysql
+
+  tasks:
+  - name: Install the following packages - unzip, libaio1, libtinfo5
+    apt:
+      update_cache: yes
+      name: "{{ item }}"
+      state: latest
+    loop: "{{ pkgs_to_install }}"
+    register: result
+    until: result is not failed
+    retries: 3
+    delay: 5
+
+  - name: dump
+    debug:
+      msg: "{{ result }}"
+
+  - name: Create a group call mysql 
+    group:
+      name: mysql 
+      state: present
+
+  - name: Create a user call mysql add it to the following groups - sudo, mysql
+    user:
+      name: mysql
+      state: present
+      groups: [ 'mysql', 'sudo' ]
+      append: yes
+
+  - name: Create a directory in /usr/local/opt
+    file:
+      name: "{{ download_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Check the archive (optional task)
+    stat:
+      path: "{{ download_dir }}/{{ mysql_dir }}.tar.xz"
+    register: file
+
+  #check if the file exist before downloading
+  - name: Download the https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.26-linux-glibc2.12-x86_64.tar.xz into /usr/local/opt, 
+    get_url:
+      url: "{{ mysql_archive }}"
+      dest: "{{ download_dir }}"
+      checksum: "{{ mysql_archive_checksum }}"
+    when: not file.stat.exists
+
+  - name: Unzip the archive into /usr/local/opt -> /usr/local/opt/mysql-8.0.26-linux-glibc2.12-x86_64
+    unarchive:
+      src: "{{ download_dir }}/{{ mysql_dir }}.tar.xz"
+      dest: "{{ download_dir }}"
+      remote_src: yes
+      creates: "{{ download_dir }}/{{ mysql_dir }}"
+
+  - name: Change all the files under /usr/local/opt to be owned by mysql, group = mysql
+    file:
+      path: "{{ download_dir }}"
+      owner: mysql
+      group: mysql
+      recurse: yes
+
+  - name: Create a symlink mysql
+    file:
+      src: "{{ download_dir }}/{{ mysql_dir }}"
+      dest: "{{ download_dir }}/mysql"
+      owner: mysql
+      group: mysql
+      state: link
+
+  - name: Create a symlink to /usr/local/bin for mysql
+    file:
+      src: "{{ download_dir }}/{{ mysql_dir }}/bin/mysql"
+      dest: "/usr/local/bin/mysql"
+      state: link
+
+  - name: Generate my.cnf in /etc/my.cnf
+    template:
+      src: ./my.cnf.j2
+      dest: /etc/my.cnf
+
+  - name: Initialize MySQL
+    command:
+      chdir: "{{ mysql_base_dir }}"
+      argv: 
+      - "bin/mysqld" 
+      - --initialize 
+      - --user=mysql
+      creates: /var/lib/mysql
+    register: output
+
+  # d#G2JCCN35dU
+  - name: MySQL initialize output
+    debug:
+      msg: "{{ output }}"
+
+  - name: Generate the service file
+    template:
+      src: ./mysql.service.j2
+      dest: /lib/systemd/system/mysql.service
+      mode: '0644'
+
+  # JNhmdyTTo6>y
+  - name: Enable and start MySQL
+    systemd:
+      name: mysql
+      daemon_reload: yes
+      enabled: yes 
+      state: started
