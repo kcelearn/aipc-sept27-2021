@@ -99,10 +99,17 @@
       creates: /var/lib/mysql
     register: output
 
-  # d#G2JCCN35dU
-  - name: MySQL initialize output
+  - name: MySQL initialize output - all
     debug:
-      msg: "{{ output.stderr_lines[-1] }}"
+      msg: "{{ output }}"
+
+  - name: Extract the random password
+    set_fact:
+      generated_password: "{{ output.stderr_lines[-1].split(':')[-1] | trim }}"
+
+  - name: Show password
+    debug:
+      msg: "Generated password: {{ generated_password }}"
 
   - name: Generate the service file
     template:
@@ -110,10 +117,20 @@
       dest: /lib/systemd/system/mysql.service
       mode: '0644'
 
-  # JNhmdyTTo6>y
   - name: Enable and start MySQL
     systemd:
       name: mysql
       daemon_reload: yes
       enabled: yes 
       state: started
+
+  - name: Generate the SQL script to change the root password
+    template:
+      src: ./change_root_password.sql.j2
+      dest: "{{ download_dir }}/change_root_password.sql"
+      mode: '0400'
+
+  - name: Change the root password  
+    shell:
+      chdir: "{{ download_dir }}/mysql"
+      cmd: "bin/mysql -uroot -p'{{ generated_password }}' --connect-expired-password < {{ download_dir }}/change_root_password.sql"
